@@ -3,6 +3,10 @@
 
 The Doctor Patient Appointment Booking System is a web application that allows users to register as doctors or patients, view doctors based on location or specialty, make appointments with doctors, and manage their bookings. The system is built using Node.js, Express.js, and MongoDB.
 
+## Demo Video
+
+🎥 [Click here to watch the demo video](https://drive.google.com/file/d/17RG79Q3SPARMoOalV0DIfTupLplVO8sU/view?usp=drive_link)
+
 ## Table of Contents
 - [Installation](#installation)
 - [Usage](#usage)
