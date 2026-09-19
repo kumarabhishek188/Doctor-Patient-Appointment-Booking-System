@@ -6,6 +6,9 @@ require("dotenv").config();
 const { connection } = require("./config/db");
 const { userRoute } = require("./routes/userRoute");
 const { bookingRoutes } = require("./routes/bookingRoute");
+const { reviewRoute } = require("./routes/reviewRoute");
+const { notificationRoute } = require("./routes/notificationRoute");
+require("./cronNotifications");
 
 const app=express();
 
@@ -13,7 +16,7 @@ app.use(cors());
 app.use(express.json());
 
 const httpServer = http.createServer(app);
-const io = new Server(httpServer);
+const io = new Server(httpServer, { cors: { origin: true, credentials: true } });
 
 app.get("/",(req,res)=>{
     res.send("Welcome to Home Route")
@@ -21,36 +24,76 @@ app.get("/",(req,res)=>{
 
 app.use("/user",userRoute)
 app.use("/booking",bookingRoutes)
+app.use("/reviews",reviewRoute)
+app.use("/notifications",notificationRoute)
 
 app.set('view engine','ejs');
 app.use(express.static('public'));
 
 app.get("/:room",(req,res)=>{
-  res.render('room',{roomId: req.params.room});
+  res.render('room',{roomId: req.params.room, role: req.query.role || 'participant'});
 });
 
-const roomUsers = {};
+const roomUsers = new Map();
 
 io.on("connection", (socket) => {
-  socket.on('joinRoom', (roomId, userId) => {
+  socket.on('joinRoom', (roomId, role = 'participant') => {
+    const users = roomUsers.get(roomId) || [];
+    if (!['doctor', 'patient'].includes(role)) {
+      socket.emit('roomAccessDenied');
+      return;
+    }
+    if (users.length >= 2 || users.some(user => user.role === role)) {
+      socket.emit('roomFull');
+      return;
+    }
     socket.join(roomId);
-    if (!roomUsers[roomId]) roomUsers[roomId] = [];
-    roomUsers[roomId].push(userId);
+    socket.emit('roomUsers', users.map(user => user.socketId));
+    users.push({ socketId: socket.id, role });
+    roomUsers.set(roomId, users);
+    if (users.length === 2) {
+      const existingUser = users[0];
+      socket.emit('incomingCall', {
+        callerId: existingUser.socketId,
+        callerRole: existingUser.role,
+      });
+      io.to(existingUser.socketId).emit('callWaiting', { participantRole: role });
+    }
 
-    // Send all existing users to the new user (except themselves)
-    const otherUsers = roomUsers[roomId].filter(id => id !== userId);
-    socket.emit('allUsers', otherUsers);
+    socket.on('acceptCall', ({ callerId }) => {
+      io.to(callerId).emit('callAccepted', { accepterId: socket.id });
+    });
 
-    // Notify others
-    socket.broadcast.to(roomId).emit('userConnected', userId);
+    socket.on('rejectCall', ({ callerId }) => {
+      io.to(callerId).emit('callRejected');
+      socket.leave(roomId);
+      const remaining = (roomUsers.get(roomId) || []).filter(user => user.socketId !== socket.id);
+      if (remaining.length) roomUsers.set(roomId, remaining);
+      else roomUsers.delete(roomId);
+      io.to(callerId).emit('userDisconnected', socket.id);
+    });
+
+    socket.on('webrtc-offer', ({ target, offer }) => {
+      io.to(target).emit('webrtc-offer', { sender: socket.id, offer });
+    });
+
+    socket.on('webrtc-answer', ({ target, answer }) => {
+      io.to(target).emit('webrtc-answer', { sender: socket.id, answer });
+    });
+
+    socket.on('webrtc-ice-candidate', ({ target, candidate }) => {
+      io.to(target).emit('webrtc-ice-candidate', { sender: socket.id, candidate });
+    });
 
     socket.on('chatMessage', ({ roomId, message }) => {
       socket.broadcast.to(roomId).emit('chatMessage', { message });
     });
 
     socket.on('disconnect', () => {
-      roomUsers[roomId] = (roomUsers[roomId] || []).filter(id => id !== userId);
-      socket.broadcast.to(roomId).emit('userDisconnected', userId);
+      const remaining = (roomUsers.get(roomId) || []).filter(user => user.socketId !== socket.id);
+      if (remaining.length) roomUsers.set(roomId, remaining);
+      else roomUsers.delete(roomId);
+      socket.broadcast.to(roomId).emit('userDisconnected', socket.id);
     });
   });
 });

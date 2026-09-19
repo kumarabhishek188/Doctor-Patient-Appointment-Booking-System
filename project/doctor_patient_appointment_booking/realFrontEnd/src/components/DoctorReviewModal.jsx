@@ -32,7 +32,7 @@ const DoctorReviewModal = ({ doctorId, doctorName }) => {
           setReview("");
           setUserReview(null);
         }
-      } catch (e) {
+      } catch {
         setAlreadyReviewed(false);
       }
     };

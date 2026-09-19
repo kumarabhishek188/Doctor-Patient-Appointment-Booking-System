@@ -23,7 +23,7 @@ const SimpleReviewBox = ({ doctorId }) => {
           setSubmitted(true);
           setUserReview(found);
         }
-      } catch (e) {
+      } catch {
         setSubmitted(false);
       }
     };

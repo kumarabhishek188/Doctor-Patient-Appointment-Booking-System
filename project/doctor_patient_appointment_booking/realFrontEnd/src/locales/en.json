@@ -12,8 +12,27 @@
     "language": "Language"
   },
   "home": {
-    "welcome": "Welcome to Doctor-Patient Appointment Booking!",
-    "book_now": "Book Now"
+    "eyebrow": "Care that fits your day",
+    "welcome": "Better care starts with the right appointment.",
+    "subtitle": "Find a doctor, choose a time, and meet securely online when it is time for your consultation.",
+    "get_started": "Get started",
+    "open_dashboard": "Open my appointments",
+    "today_label": "Your care, organised",
+    "care_title": "From booking to follow-up",
+    "care_text": "A simple, reliable place for patients and doctors to manage every consultation.",
+    "trust_booking": "Book an available time slot",
+    "trust_video": "Join a private doctor-patient video room",
+    "trust_reminders": "Receive appointment reminders in-app",
+    "features_title": "Everything you need for a smoother visit",
+    "features_subtitle": "The four tools below are live in this project and connected to your account.",
+    "feature_booking": "Appointments",
+    "feature_booking_desc": "Choose a doctor, select a slot, and manage upcoming visits.",
+    "feature_video": "Video consultations",
+    "feature_video_desc": "Start a two-person consultation with an accept-before-join flow.",
+    "feature_directory": "Doctor search",
+    "feature_directory_desc": "Search doctors by name, specialty, and location.",
+    "feature_alerts": "Smart reminders",
+    "feature_alerts_desc": "Get booking confirmations and scheduled appointment reminders."
   },
   "doctor": {
     "title": "Doctor List",

@@ -7,11 +7,15 @@ import App from './App.jsx';
 import { ColorModeContext } from './components/NavBar';
 
 const Main = () => {
-  const [mode, setMode] = useState('light');
+  const [mode, setMode] = useState(() => localStorage.getItem('themeMode') || 'light');
   const colorMode = useMemo(
     () => ({
       mode,
-      toggleColorMode: () => setMode((prev) => (prev === 'light' ? 'dark' : 'light')),
+      toggleColorMode: () => setMode((prev) => {
+        const nextMode = prev === 'light' ? 'dark' : 'light';
+        localStorage.setItem('themeMode', nextMode);
+        return nextMode;
+      }),
     }),
     [mode]
   );

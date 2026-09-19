@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Table,
@@ -14,7 +14,7 @@ import {
 import axios from "axios";
 import { useTranslation } from "react-i18next";
 
-const baseUrl = `http://localhost:4000`;
+const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 const AppointmentPage = () => {
   const { t } = useTranslation();
@@ -23,6 +23,20 @@ const AppointmentPage = () => {
   const [userName, setUserName] = useState("");
   const token = sessionStorage.getItem("token");
   const navigate = useNavigate();
+
+  const fetchAppointments = useCallback(async () => {
+    try {
+      const response = await axios.get(`${baseUrl}/booking/paticularUser`, {
+        headers: {
+          "Content-type": "application/json",
+          Authorization: `${token}`,
+        },
+      });
+      setAppointments(response.data.Data || []);
+    } catch (error) {
+      console.error("Error fetching appointments:", error.message);
+    }
+  }, [token]);
 
   useEffect(() => {
     if (!token) {
@@ -37,21 +51,7 @@ const AppointmentPage = () => {
     setUserName(name);
 
     fetchAppointments();
-  }, [token, navigate]);
-
-  const fetchAppointments = async () => {
-    try {
-      const response = await axios.get(`${baseUrl}/booking/paticularUser`, {
-        headers: {
-          "Content-type": "application/json",
-          Authorization: `${token}`,
-        },
-      });
-      setAppointments(response.data.Data || []);
-    } catch (error) {
-      console.error("Error fetching appointments:", error.message);
-    }
-  };
+  }, [token, navigate, fetchAppointments]);
 
   const cancelAppointment = async (id) => {
     try {
@@ -74,8 +74,10 @@ const AppointmentPage = () => {
     }
   };
 
-  const handleVideoCall = (id) => {
-    window.open(`http://localhost:4000/${id}`, "_blank");
+  const handleVideoCall = (appointment) => {
+    const roomId = appointment.roomId || appointment._id;
+    const role = sessionStorage.getItem("role") || "participant";
+    window.open(`${baseUrl}/${encodeURIComponent(roomId)}?role=${encodeURIComponent(role)}`, "_blank", "noopener,noreferrer");
   };
 
   const formatTimeSlot = (slot) => {
@@ -119,19 +121,23 @@ const AppointmentPage = () => {
                 <TableCell>{appointment.bookingDate}</TableCell>
                 <TableCell>{formatTimeSlot(appointment.bookingSlot)}</TableCell>
                 <TableCell>
-                  <Button
-                    variant="contained"
-                    color="error"
-                    onClick={() => cancelAppointment(appointment._id)}
-                  >
-                    Cancel Appointment
-                  </Button>
+                  {userRole === "patient" ? (
+                    <Button
+                      variant="contained"
+                      color="error"
+                      onClick={() => cancelAppointment(appointment._id)}
+                    >
+                      Cancel Appointment
+                    </Button>
+                  ) : (
+                    <Typography color="text.secondary">Managed by patient</Typography>
+                  )}
                 </TableCell>
                 <TableCell>
                   <Button
                     variant="contained"
                     color="primary"
-                    onClick={() => handleVideoCall(appointment._id)}
+                    onClick={() => handleVideoCall(appointment)}
                   >
                     Video Call
                   </Button>

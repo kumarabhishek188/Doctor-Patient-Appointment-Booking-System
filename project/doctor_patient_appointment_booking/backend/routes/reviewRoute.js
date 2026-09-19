@@ -1,10 +1,11 @@
 const express = require('express');
 const { ReviewModel } = require('../models/reviewModel');
 const { authentication } = require('../middlewares/authenticationMiddleware');
+const { authorisation } = require('../middlewares/authorizationMiddleware');
 const reviewRoute = express.Router();
 
 // Submit a review (patient only)
-reviewRoute.post('/', authentication, async (req, res) => {
+reviewRoute.post('/', authentication, authorisation(['patient']), async (req, res) => {
   try {
     const { doctorId, rating, review, bookingId } = req.body;
     const patientId = req.body.userId;

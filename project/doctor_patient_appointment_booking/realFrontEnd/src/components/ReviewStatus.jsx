@@ -17,7 +17,7 @@ const ReviewStatus = ({ doctorId, bookingId }) => {
           setReviewed(true);
           setReview(found);
         }
-      } catch (e) {
+      } catch {
         setReviewed(false);
       }
     };

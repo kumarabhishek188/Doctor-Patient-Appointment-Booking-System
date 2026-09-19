@@ -12,11 +12,8 @@ import {
   InputLabel,
   FormControl,
   Container,
-  AppBar,
-  Toolbar,
-  Link,
 } from "@mui/material";
-import { BrowserRouter as Router, Routes, Route, Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { useTranslation } from 'react-i18next';
 
 const baseUrl = "http://localhost:4000";
@@ -26,10 +23,16 @@ const Doctor = () => {
   const [doctors, setDoctors] = useState([]);
   const [location, setLocation] = useState("");
   const [specialty, setSpecialty] = useState("");
+  const [name, setName] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
+    if (sessionStorage.getItem("role") === "doctor") {
+      navigate("/appointments", { replace: true });
+      return;
+    }
     fetchAllDoctors();
-  }, []);
+  }, [navigate]);
 
   const fetchAllDoctors = async () => {
     try {
@@ -41,9 +44,10 @@ const Doctor = () => {
     }
   };
 
-  const fetchDoctorsByLocation = async (location) => {
+  const searchDoctors = async () => {
     try {
-      const res = await fetch(`${baseUrl}/user/doctors/${location}`);
+      const params = new URLSearchParams({ name, specialty, location });
+      const res = await fetch(`${baseUrl}/user/doctors/search?${params}`);
       const data = await res.json();
       setDoctors(data.data || []);
     } catch (error) {
@@ -51,30 +55,13 @@ const Doctor = () => {
     }
   };
 
-  const fetchDoctorsBySpecialty = async (specialty) => {
-    try {
-      const res = await fetch(`${baseUrl}/user/doctors/specialty/${specialty}`);
-      const data = await res.json();
-      setDoctors(data.data || []);
-    } catch (error) {
-      console.error("Error fetching doctors by specialty:", error);
-    }
-  };
-
   const handleSearch = () => {
-    if (location) {
-      fetchDoctorsByLocation(location);
-    }
+    searchDoctors();
   };
 
   const handleSpecialtyChange = (e) => {
     const selectedSpecialty = e.target.value;
     setSpecialty(selectedSpecialty);
-    if (selectedSpecialty) {
-      fetchDoctorsBySpecialty(selectedSpecialty);
-    } else {
-      fetchAllDoctors();
-    }
   };
 
   const handleBookAppointment = (doctorId) => {
@@ -87,6 +74,14 @@ const Doctor = () => {
         {t('doctor.title')}
       </Typography>
       <Grid container spacing={2} alignItems="center" marginBottom={2}>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            label={t('doctor.find_by_name', 'Search by doctor name')}
+            fullWidth
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </Grid>
         <Grid item xs={12} sm={6}>
           <TextField
             label={t('doctor.find_by_location', 'Find doctors by location')}

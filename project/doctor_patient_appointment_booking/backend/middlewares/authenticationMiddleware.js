@@ -1,4 +1,6 @@
 const jwt=require("jsonwebtoken");
+const fs=require("fs");
+const path=require("path");
 require("dotenv").config();
 const authentication=async(req,res,next)=>{
     let token=req.headers.authorization;
@@ -7,6 +9,9 @@ const authentication=async(req,res,next)=>{
             if (token.startsWith('Bearer ')) {
                 token = token.slice(7);
             }
+            const blacklistPath = path.join(__dirname, "../blacklist.json");
+            const blacklist = JSON.parse(fs.readFileSync(blacklistPath, "utf8"));
+            if (blacklist.includes(token)) return res.status(401).json({ msg: "Session has ended. Please log in again." });
             let decode=jwt.verify(token,process.env.Key);
             let userId=decode.userId;
             let role=decode.role;
@@ -18,14 +23,14 @@ const authentication=async(req,res,next)=>{
                 req.body.userEmail=email;
                 next();
             }else{
-                res.json({"msg":"Invalid Token"})
+                return res.status(401).json({"msg":"Invalid token."})
             }
         }else{
-            res.json({"msg":"Not Authorized"})
+            return res.status(401).json({"msg":"Authentication required."})
         }
     } catch (error) {
         console.log("error from authenticate middleware",error);
-        res.json({"msg":"error while authentication"})
+        return res.status(401).json({"msg":"Invalid or expired token."})
     }
 }
 

@@ -13,7 +13,7 @@ const DoctorRating = ({ doctorId }) => {
         const res = await axios.get(`/reviews/average/${doctorId}`);
         setAvg(res.data.avgRating || 0);
         setCount(res.data.count || 0);
-      } catch (e) {
+      } catch {
         setAvg(0);
         setCount(0);
       }

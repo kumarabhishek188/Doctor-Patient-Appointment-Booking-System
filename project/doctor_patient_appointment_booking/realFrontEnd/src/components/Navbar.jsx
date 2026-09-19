@@ -1,6 +1,6 @@
 import React, { useState, createContext, useContext } from "react";
-import { Link } from "react-router-dom";
-import { AppBar, Toolbar, Button, Switch, Tooltip, Select, MenuItem } from "@mui/material";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { AppBar, Toolbar, Button, Switch, Tooltip, Select, MenuItem, Box } from "@mui/material";
 import Notifications from "./Notifications";
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
@@ -14,23 +14,33 @@ export const useColorMode = () => useContext(ColorModeContext);
 const Navbar = () => {
   const { mode, toggleColorMode } = useColorMode();
   const { t, i18n } = useTranslation();
-  const [lang, setLang] = useState(i18n.language || 'en');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [lang, setLang] = useState(() => localStorage.getItem('language') || i18n.language || 'en');
+  const role = sessionStorage.getItem("role");
+
+  const handleLogout = () => {
+    sessionStorage.clear();
+    navigate("/login");
+  };
 
   const handleLangChange = (event) => {
     const newLang = event.target.value;
     setLang(newLang);
+    localStorage.setItem('language', newLang);
     i18n.changeLanguage(newLang);
   };
 
   return (
     <AppBar position="static">
       <Toolbar>
-        <Button component={Link} to="/" color="inherit">{t('navbar.home')}</Button>
-        <Button component={Link} to="/register" color="inherit">{t('navbar.register')}</Button>
-        <Button component={Link} to="/login" color="inherit">{t('navbar.login')}</Button>
-        <Button component={Link} to="/doctors" color="inherit">{t('navbar.doctors')}</Button>
+        <Button component={Link} to="/" color="inherit" key={location.pathname}>{t('navbar.home')}</Button>
+        {!role && <Button component={Link} to="/register" color="inherit">{t('navbar.register')}</Button>}
+        {!role && <Button component={Link} to="/login" color="inherit">{t('navbar.login')}</Button>}
+        {role === "patient" && <Button component={Link} to="/doctors" color="inherit">{t('navbar.doctors')}</Button>}
         <Button component={Link} to="/appointments" color="inherit">{t('navbar.appointments')}</Button>
-        <div style={{ flex: 1 }} />
+        {role && <Button onClick={handleLogout} color="inherit">{t('navbar.logout')}</Button>}
+        <Box sx={{ flex: 1 }} />
         <Notifications />
         <Select
           id="lang-select"

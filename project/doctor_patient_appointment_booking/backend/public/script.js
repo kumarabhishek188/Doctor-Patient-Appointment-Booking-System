@@ -1,11 +1,11 @@
 const socket = io("/");
 const videoGrid = document.getElementById("videoGrid");
 const noRemoteMsg = document.getElementById("noRemoteMsg");
-const myPeer = new Peer(undefined, {
-    host: "/",
-    port: "3001",
-});
-
+const callRequest = document.getElementById("callRequest");
+const callRequestTitle = document.getElementById("callRequestTitle");
+const callRequestText = document.getElementById("callRequestText");
+const acceptCallBtn = document.getElementById("acceptCall");
+const rejectCallBtn = document.getElementById("rejectCall");
 const myVideo = document.createElement("video");
 myVideo.muted = true;
 myVideo.setAttribute("data-label", "You");
@@ -14,7 +14,10 @@ let audiotoggle = true;
 let videotoggle = true;
 
 const peers = {};
-let myId = null;
+const remoteVideos = {};
+let stream;
+let pendingCallerId = null;
+let callAccepted = false;
 
 function updateMyLabel() {
     const label = myVideo.parentElement.querySelector('span');
@@ -38,82 +41,130 @@ function toggleVideo(state) {
     updateMyLabel();
 }
 
+async function createPeerConnection(userId, shouldCreateOffer) {
+    const peer = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+    });
+    stream.getTracks().forEach(track => peer.addTrack(track, stream));
+    peer.ontrack = event => {
+        if (!remoteVideos[userId]) {
+            const video = document.createElement('video');
+            video.setAttribute('data-label', 'Other Participant');
+            remoteVideos[userId] = addVideoStream(video, event.streams[0], 'Other Participant');
+        } else {
+            remoteVideos[userId].video.srcObject = event.streams[0];
+        }
+    };
+    peer.onicecandidate = event => {
+        if (event.candidate) socket.emit('webrtc-ice-candidate', { target: userId, candidate: event.candidate });
+    };
+    peers[userId] = peer;
+    if (shouldCreateOffer) {
+        const offer = await peer.createOffer();
+        await peer.setLocalDescription(offer);
+        socket.emit('webrtc-offer', { target: userId, offer });
+    }
+    return peer;
+}
+
 navigator.mediaDevices.getUserMedia({
     video: true,
     audio: true
-}).then(stream => {
+}).then(localStream => {
+    stream = localStream;
     addVideoStream(myVideo, stream);
     updateMyLabel();
-
-    myPeer.on('call', call => {
-        call.answer(stream);
-        const video = document.createElement('video');
-        video.setAttribute('data-label', 'Other Participant');
-        call.on('stream', userVideoStream => {
-            addVideoStream(video, userVideoStream, 'Other Participant');
-        });
-    });
-
-    socket.on('allUsers', userIds => {
-        userIds.forEach(userId => {
-            connectToNewUser(userId, stream);
-        });
-    });
-
-    socket.on('userConnected', userId => {
-        connectToNewUser(userId, stream);
-    });
 
     const audioBtn = document.getElementById("audio");
     audioBtn.addEventListener("click", () => {
         audiotoggle = !audiotoggle;
         toggleAudio(audiotoggle);
-        audioBtn.textContent = audiotoggle ? "Mute Audio" : "Unmute Audio";
-        updateButtonColor(audioBtn, audiotoggle);
+        audioBtn.textContent = audiotoggle ? "Mute audio" : "Unmute audio";
+        audioBtn.classList.toggle("control-on", audiotoggle);
+        audioBtn.classList.toggle("control-off", !audiotoggle);
     });
 
     const cameraBtn = document.getElementById("camera");
     cameraBtn.addEventListener("click", () => {
         videotoggle = !videotoggle;
         toggleVideo(videotoggle);
-        cameraBtn.textContent = videotoggle ? "Turn Off Camera" : "Turn On Camera";
-        updateButtonColor(cameraBtn, videotoggle);
+        cameraBtn.textContent = videotoggle ? "Turn off camera" : "Turn on camera";
+        cameraBtn.classList.toggle("control-on", videotoggle);
+        cameraBtn.classList.toggle("control-off", !videotoggle);
     });
-
-    function updateButtonColor(button, state) {
-        if (state) {
-            button.style.backgroundColor = "lightblue";
-        } else {
-            button.style.backgroundColor = "lightblue";
-        }
-    }
-})
-
-myPeer.on('open', id => {
-    myId = id;
-    socket.emit('joinRoom', ROOM_ID, id);
+    socket.emit('joinRoom', ROOM_ID, USER_ROLE);
+}).catch(() => {
+    noRemoteMsg.textContent = 'Camera and microphone access is required for a video consultation.';
+    noRemoteMsg.style.display = 'block';
 });
 
-function connectToNewUser(userId, stream) {
-    if (peers[userId]) return; // Prevent duplicate connections
-    const call = myPeer.call(userId, stream);
-    const video = document.createElement('video');
-    video.setAttribute('data-label', 'Other Participant');
-    call.on('stream', userVideoStream => {
-        addVideoStream(video, userVideoStream, 'Other Participant');
-    });
-    call.on('close', () => {
-        video.parentElement && video.parentElement.remove();
-        updateRemoteMsg();
-    });
-    peers[userId] = call;
-}
+socket.on('roomUsers', () => {});
+socket.on('incomingCall', ({ callerId, callerRole }) => {
+    pendingCallerId = callerId;
+    callRequestTitle.textContent = `Incoming call from ${callerRole}`;
+    callRequestText.textContent = 'Accept to start this scheduled consultation.';
+    callRequest.hidden = false;
+});
+socket.on('callWaiting', ({ participantRole }) => {
+    noRemoteMsg.textContent = `Waiting for the ${participantRole} to accept the consultation...`;
+    noRemoteMsg.style.display = 'block';
+});
+acceptCallBtn.addEventListener('click', () => {
+    if (!pendingCallerId) return;
+    callAccepted = true;
+    callRequest.hidden = true;
+    socket.emit('acceptCall', { callerId: pendingCallerId });
+    noRemoteMsg.textContent = 'Connecting your consultation...';
+});
+rejectCallBtn.addEventListener('click', () => {
+    if (pendingCallerId) socket.emit('rejectCall', { callerId: pendingCallerId });
+    callRequest.hidden = true;
+    noRemoteMsg.textContent = 'Call declined.';
+});
+socket.on('callAccepted', async ({ accepterId }) => {
+    callAccepted = true;
+    if (!peers[accepterId]) await createPeerConnection(accepterId, true);
+});
+socket.on('callRejected', () => {
+    noRemoteMsg.textContent = 'The other participant declined the consultation.';
+    noRemoteMsg.style.display = 'block';
+});
+socket.on('webrtc-offer', async ({ sender, offer }) => {
+    const peer = peers[sender] || await createPeerConnection(sender, false);
+    await peer.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await peer.createAnswer();
+    await peer.setLocalDescription(answer);
+    socket.emit('webrtc-answer', { target: sender, answer });
+});
+socket.on('webrtc-answer', async ({ sender, answer }) => {
+    if (peers[sender]) await peers[sender].setRemoteDescription(new RTCSessionDescription(answer));
+});
+socket.on('webrtc-ice-candidate', async ({ sender, candidate }) => {
+    if (peers[sender]) await peers[sender].addIceCandidate(new RTCIceCandidate(candidate));
+});
 
 socket.on('userDisconnected', userId => {
     if (peers[userId]) {
         peers[userId].close();
         delete peers[userId];
     }
+    if (remoteVideos[userId]) {
+        remoteVideos[userId].wrapper.remove();
+        delete remoteVideos[userId];
+        updateRemoteMsg();
+    }
+});
+
+socket.on('roomFull', () => {
+    noRemoteMsg.textContent = 'This consultation already has one doctor and one patient.';
+    noRemoteMsg.style.display = 'block';
+    document.getElementById('btnsDiv').style.display = 'none';
+});
+
+socket.on('roomAccessDenied', () => {
+    noRemoteMsg.textContent = 'Open this consultation from a logged-in doctor or patient appointment.';
+    noRemoteMsg.style.display = 'block';
+    document.getElementById('btnsDiv').style.display = 'none';
 });
 
 function addVideoStream(video, stream, label = "Other Participant") {
@@ -121,7 +172,6 @@ function addVideoStream(video, stream, label = "Other Participant") {
     video.addEventListener('loadedmetadata', () => {
         video.play();
     });
-    // Add label below video
     const wrapper = document.createElement('div');
     wrapper.className = 'video-frame';
     wrapper.style.width = '100%';
@@ -132,25 +182,26 @@ function addVideoStream(video, stream, label = "Other Participant") {
     wrapper.appendChild(videoLabel);
     videoGrid.append(wrapper);
     updateRemoteMsg();
+    return { video, wrapper };
 }
 
 const callTimer = document.getElementById("callTimer");
 let timerInterval = null;
 let callStarted = false;
+let elapsedSeconds = 0;
 
 function startCallTimer() {
-    let seconds = 0;
-    callTimer.textContent = '00:00';
+    if (timerInterval) return;
     timerInterval = setInterval(() => {
-        seconds++;
-        const min = String(Math.floor(seconds / 60)).padStart(2, '0');
-        const sec = String(seconds % 60).padStart(2, '0');
+        elapsedSeconds++;
+        const min = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
+        const sec = String(elapsedSeconds % 60).padStart(2, '0');
         callTimer.textContent = `${min}:${sec}`;
     }, 1000);
 }
 function stopCallTimer() {
     clearInterval(timerInterval);
-    callTimer.textContent = '00:00';
+    timerInterval = null;
 }
 
 function updateRemoteMsg() {

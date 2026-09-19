@@ -2,6 +2,13 @@ import React from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@mui/material/styles';
+import { Box, Button, Chip, Container, Grid, Paper, Stack, Typography } from '@mui/material';
+import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
+import VideoCameraFrontOutlinedIcon from '@mui/icons-material/VideoCameraFrontOutlined';
+import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
+import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
+import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
+import { Link as RouterLink } from 'react-router-dom';
 import Navbar from "./components/NavBar";
 import Login from "./pages/Login";
 import RegisterPage from "./pages/RegisterPage";
@@ -13,198 +20,74 @@ const HomePage = () => {
   const { t } = useTranslation();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const isLoggedIn = Boolean(sessionStorage.getItem('token'));
+  const role = sessionStorage.getItem('role');
+  const primaryPath = role === 'doctor' ? '/appointments' : role === 'patient' ? '/doctors' : '/register';
+
   return (
-    <>
-      <div
-        style={{
-          minHeight: "80vh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          background: isDark
-            ? "linear-gradient(135deg, #23272a 0%, #181a1b 100%)"
-            : "linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%)",
-          padding: "40px 10px",
-        }}
-      >
-        <h1
-          style={{
-            color: isDark ? "#fff" : "#2d3a4b",
-            fontSize: "2.8rem",
-            marginBottom: 10,
-          }}
-        >
-          {t('home.welcome')}
-        </h1>
-        <p
-          style={{
-            color: isDark ? "#ccc" : "#444",
-            fontSize: "1.2rem",
-            maxWidth: 600,
-            textAlign: "center",
-            marginBottom: 30,
-          }}
-        >
-          {t('home.book_now')}
-        </p>
-        <div
-          style={{
-            display: "flex",
-            gap: 20,
-            marginBottom: 40,
-          }}
-        >
-          <a
-            href="/register"
-            className="cta-btn register-btn"
-          >
-            Register
-          </a>
-          <a
-            href="/login"
-            className="cta-btn login-btn"
-          >
-            Login
-          </a>
-        </div>
-        <div className="feature-grid">
-          <FeatureCard
-            title="Book Appointments"
-            icon="📅"
-            desc="Easily schedule appointments with your preferred doctors."
-          />
-          <FeatureCard
-            title="Video Consultation"
-            icon="🎥"
-            desc="Join secure, high-quality video calls for remote checkups."
-          />
-          <FeatureCard
-            title="Real-time Chat"
-            icon="💬"
-            desc="Chat instantly with your doctor during your appointment."
-          />
-          <FeatureCard
-            title="Doctor Directory"
-            icon="👨‍⚕️"
-            desc="Browse and search for doctors by specialty and location."
-          />
-        </div>
-        <style>{`
-          .cta-btn {
-            background: #3498db;
-            color: #fff;
-            padding: 12px 28px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 1.1rem;
-            box-shadow: 0 2px 8px #b3c6e0;
-            border: none;
-            transition: background 0.2s, color 0.2s, box-shadow 0.2s;
-            display: inline-block;
-          }
-          .cta-btn.login-btn {
-            background: #fff;
-            color: #3498db;
-            border: 2px solid #3498db;
-          }
-          .cta-btn:hover {
-            background: #217dbb;
-            color: #fff;
-            box-shadow: 0 4px 16px #b3c6e0;
-          }
-          .cta-btn.login-btn:hover {
-            background: #3498db;
-            color: #fff;
-          }
-          .feature-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(220px, 1fr));
-            gap: 32px;
-            max-width: 700px;
-            width: 100%;
-            margin: 0 auto;
-          }
-          .feature-card {
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 2px 12px #e0eafc;
-            padding: 28px 18px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 180px;
-            transition: box-shadow 0.2s, transform 0.2s, border 0.2s;
-            border: 2px solid #e0eafc;
-            cursor: pointer;
-          }
-          .feature-card:hover {
-            box-shadow: 0 6px 24px #b3c6e0;
-            border: 2px solid #3498db;
-            transform: translateY(-4px) scale(1.03);
-          }
-        `}</style>
-      </div>
-      <footer style={{
-        width: '100%',
-        background: 'linear-gradient(90deg, #f8fafc 0%, #e0eafc 100%)',
-        color: '#2d3a4b',
-        textAlign: 'center',
-        padding: '22px 0 16px 0',
-        fontSize: '1.08rem',
-        letterSpacing: '0.5px',
-        marginTop: 48,
-        borderTop: '1.5px solid #dbeafe',
-        fontWeight: 600,
-        boxShadow: '0 -2px 16px #e0eafc',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 6,
-      }}>
-        <div style={{fontSize: '1.15rem', fontWeight: 700, letterSpacing: '1px', color: '#217dbb', marginBottom: 2}}>
-          &copy; {new Date().getFullYear()} Abhishek Kumar
-        </div>
-        <div style={{fontSize: '0.98rem', color: '#555', marginBottom: 2}}>
-          Doctor-Patient Appointment Portal. All rights reserved.
-        </div>
-        <div style={{marginTop: 4, display: 'flex', gap: 18, alignItems: 'center'}}>
-          <a href="mailto:abhishekkumarada12@gmail.com" style={{color:'#3498db',textDecoration:'none',fontSize:'1.2rem',display:'flex',alignItems:'center'}} title="Email">
-            <span role="img" aria-label="email" style={{marginRight:6}}>✉️</span> abhishekkumarada12@gmail.com
-          </a>
-          <a href="https://www.linkedin.com/in/abhishek-kumar-92157823a/" target="_blank" rel="noopener noreferrer" style={{color:'#3498db',textDecoration:'none',fontSize:'1.2rem',display:'flex',alignItems:'center'}} title="LinkedIn">
-            <span role="img" aria-label="linkedin" style={{marginRight:6}}>🔗</span> LinkedIn
-          </a>
-        </div>
-      </footer>
-    </>
+    <Box sx={{ bgcolor: 'background.default', minHeight: 'calc(100vh - 64px)', color: 'text.primary' }}>
+      <Box sx={{ background: isDark ? '#102a43' : '#eaf5f4', py: { xs: 7, md: 10 } }}>
+        <Container maxWidth="lg">
+          <Grid container spacing={5} alignItems="center">
+            <Grid item xs={12} md={7}>
+              <Chip label={t('home.eyebrow')} color="primary" sx={{ mb: 2, fontWeight: 700 }} />
+              <Typography variant="h1" sx={{ fontSize: { xs: '2.5rem', md: '4.4rem' }, lineHeight: 1.05, fontWeight: 800, maxWidth: 720 }}>
+                {t('home.welcome')}
+              </Typography>
+              <Typography variant="h6" color="text.secondary" sx={{ mt: 2, maxWidth: 600, lineHeight: 1.6 }}>
+                {t('home.subtitle')}
+              </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 4 }}>
+                <Button component={RouterLink} to={primaryPath} variant="contained" size="large" endIcon={<ArrowForwardRoundedIcon />}>
+                  {isLoggedIn ? t('home.open_dashboard') : t('home.get_started')}
+                </Button>
+                {!isLoggedIn && <Button component={RouterLink} to="/login" variant="outlined" size="large">{t('navbar.login')}</Button>}
+              </Stack>
+            </Grid>
+            <Grid item xs={12} md={5}>
+              <Paper elevation={0} sx={{ p: 3, border: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
+                <Typography variant="overline" color="primary" sx={{ fontWeight: 800 }}>{t('home.today_label')}</Typography>
+                <Typography variant="h5" sx={{ mt: 1, fontWeight: 800 }}>{t('home.care_title')}</Typography>
+                <Typography color="text.secondary" sx={{ mt: 1 }}>{t('home.care_text')}</Typography>
+                <Stack spacing={2} sx={{ mt: 3 }}>
+                  <TrustRow icon={<CalendarMonthOutlinedIcon />} text={t('home.trust_booking')} />
+                  <TrustRow icon={<VideoCameraFrontOutlinedIcon />} text={t('home.trust_video')} />
+                  <TrustRow icon={<NotificationsNoneOutlinedIcon />} text={t('home.trust_reminders')} />
+                </Stack>
+              </Paper>
+            </Grid>
+          </Grid>
+        </Container>
+      </Box>
+      <Container maxWidth="lg" sx={{ py: 7 }}>
+        <Typography variant="h4" sx={{ fontWeight: 800 }}>{t('home.features_title')}</Typography>
+        <Typography color="text.secondary" sx={{ mt: 1, mb: 3 }}>{t('home.features_subtitle')}</Typography>
+        <Grid container spacing={2}>
+          <FeatureCard icon={<CalendarMonthOutlinedIcon />} title={t('home.feature_booking')} desc={t('home.feature_booking_desc')} />
+          <FeatureCard icon={<VideoCameraFrontOutlinedIcon />} title={t('home.feature_video')} desc={t('home.feature_video_desc')} />
+          <FeatureCard icon={<SearchOutlinedIcon />} title={t('home.feature_directory')} desc={t('home.feature_directory_desc')} />
+          <FeatureCard icon={<NotificationsNoneOutlinedIcon />} title={t('home.feature_alerts')} desc={t('home.feature_alerts_desc')} />
+        </Grid>
+      </Container>
+    </Box>
   );
 };
 
+const TrustRow = ({ icon, text }) => (
+  <Stack direction="row" spacing={1.5} alignItems="center">
+    <Box sx={{ color: 'primary.main', display: 'flex' }}>{icon}</Box>
+    <Typography variant="body2" sx={{ fontWeight: 600 }}>{text}</Typography>
+  </Stack>
+);
+
 const FeatureCard = ({ title, icon, desc }) => (
-  <div className="feature-card">
-    <div style={{ fontSize: 38, marginBottom: 12 }}>{icon}</div>
-    <div
-      style={{
-        fontWeight: 700,
-        color: "#2d3a4b",
-        fontSize: "1.2rem",
-        marginBottom: 8,
-      }}
-    >
-      {title}
-    </div>
-    <div
-      style={{
-        color: "#555",
-        textAlign: "center",
-        fontSize: "1rem",
-      }}
-    >
-      {desc}
-    </div>
-  </div>
+  <Grid item xs={12} sm={6} md={3}>
+    <Paper sx={{ p: 2.5, height: '100%', border: 1, borderColor: 'divider', transition: 'transform .2s, box-shadow .2s', '&:hover': { transform: 'translateY(-4px)', boxShadow: 4 } }}>
+      <Box sx={{ color: 'primary.main', display: 'flex', mb: 2 }}>{icon}</Box>
+      <Typography variant="h6" sx={{ fontWeight: 800 }}>{title}</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 1, lineHeight: 1.6 }}>{desc}</Typography>
+    </Paper>
+  </Grid>
 );
 
 const App = () => {

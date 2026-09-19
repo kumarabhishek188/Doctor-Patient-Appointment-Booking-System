@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import Badge from "@mui/material/Badge";
 import IconButton from "@mui/material/IconButton";
@@ -18,7 +18,7 @@ const Notifications = () => {
 
   const token = sessionStorage.getItem("token");
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setError("");
@@ -28,18 +28,17 @@ const Notifications = () => {
       });
       setNotifications(res.data.notifications || []);
       setUnreadCount((res.data.notifications || []).filter(n => !n.read).length);
-    } catch (err) {
+    } catch {
       setError("Failed to fetch notifications");
     }
     setLoading(false);
-  };
+  }, [token]);
 
   useEffect(() => {
     fetchNotifications();
-    // Optionally, poll every minute
-    const interval = setInterval(fetchNotifications, 60000);
+    const interval = setInterval(fetchNotifications, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchNotifications]);
 
   const handleOpen = (event) => {
     setAnchorEl(event.currentTarget);

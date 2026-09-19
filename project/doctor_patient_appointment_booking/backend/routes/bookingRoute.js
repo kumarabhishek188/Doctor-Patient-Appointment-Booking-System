@@ -2,6 +2,7 @@ const express = require("express");
 const { Bookingmodel } = require("../models/bookingModel");
 const { authentication } = require("../middlewares/authenticationMiddleware");
 const {authorisation}=require("../middlewares/authorizationMiddleware");
+const { NotificationModel } = require("../models/notificationModel");
 const bookingRoutes = express.Router();
 const nodemailer = require("nodemailer");
 require("dotenv").config()
@@ -39,9 +40,10 @@ bookingRoutes.post(
     }
     try {
       let allBookings = await Bookingmodel.find({ doctorId: data.doctorId });
+      let booking;
       if (allBookings.length === 0) {
         const addData = new Bookingmodel(data);
-        await addData.save();
+        booking = await addData.save();
       } else {
         for (let i = 0; i < allBookings.length; i++) {
           if (
@@ -55,13 +57,19 @@ bookingRoutes.post(
           }
         }
         const addData = new Bookingmodel(data);
-        await addData.save();
+        booking = await addData.save();
       }
-      // Return a successful response without sending an email
+      const appointmentMessage = `New appointment scheduled for ${data.bookingDate} at ${data.bookingSlot}.`;
+      await NotificationModel.create([
+        { userId: data.userId, message: `Your appointment is confirmed for ${data.bookingDate} at ${data.bookingSlot}.` },
+        { userId: data.doctorId, message: appointmentMessage },
+      ]);
+
       return res.status(201).json({
         success: true,
         msg: "Booking confirmed",
         bookingDate: data.bookingDate,
+        booking,
       });
     } catch (error) {
       console.log("error from adding new booking data", error.message);
@@ -73,6 +81,22 @@ bookingRoutes.post(
     }
   }
 );
+
+// Return the stable room id for a booking to either participant.
+bookingRoutes.get("/:id/room", authentication, authorisation(["patient", "doctor"]), async (req, res) => {
+  try {
+    const booking = await Bookingmodel.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, msg: "Appointment not found." });
+
+    const isParticipant = booking.userId === req.body.userId || booking.doctorId === req.body.userId;
+    if (!isParticipant) return res.status(403).json({ success: false, msg: "You are not part of this appointment." });
+
+    const roomId = booking.roomId || booking._id.toString();
+    return res.json({ success: true, roomId });
+  } catch (error) {
+    return res.status(500).json({ success: false, msg: "Unable to open the video room." });
+  }
+});
 
 //removing the booking data
 bookingRoutes.delete("/remove/:id", authentication,authorisation(["patient"]),async (req, res) => {

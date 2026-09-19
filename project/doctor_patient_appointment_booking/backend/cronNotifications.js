@@ -8,46 +8,37 @@ const cron = require("node-cron");
 // Connect to DB if not already connected
 mongoose.connect(process.env.mongoDbUrl, { useNewUrlParser: true, useUnifiedTopology: true });
 
-// Run every 10 minutes
-cron.schedule("*/10 * * * *", async () => {
+const slotHours = { "8-9": 8, "9-10": 9, "4-5": 16, "7-8": 19 };
+
+function appointmentDateTime(bookingDate, bookingSlot) {
+  const [year, month, day] = bookingDate.split("-").map(Number);
+  return new Date(year, month - 1, day, slotHours[bookingSlot] || 9, 0, 0);
+}
+
+// Run every minute so reminders stay close to the scheduled time.
+cron.schedule("* * * * *", async () => {
   const now = new Date();
   const inOneHour = new Date(now.getTime() + 60 * 60 * 1000);
-  const inOneDay = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  // Find all future appointments
   const upcoming = await Bookingmodel.find({
     bookingDate: { $gte: now.toISOString().slice(0, 10) },
   });
   for (const appt of upcoming) {
-    const apptDate = new Date(appt.bookingDate);
-    // One hour before notification
+    const apptDate = appointmentDateTime(appt.bookingDate, appt.bookingSlot);
+    const appointmentMessage = `Your appointment on ${appt.bookingDate} at ${appt.bookingSlot} starts in about one hour.`;
     if (apptDate > now && apptDate <= inOneHour) {
-      const exists = await NotificationModel.findOne({
-        userId: appt.userId,
-        message: { $regex: `scheduled on ${appt.bookingDate}` },
-      });
-      if (!exists) {
-        await NotificationModel.create({
-          userId: appt.userId,
-          message: `Your upcoming appointment is scheduled on ${appt.bookingDate} at ${appt.bookingSlot}.`,
-        });
+      for (const userId of [appt.userId, appt.doctorId]) {
+        const exists = await NotificationModel.findOne({ userId, message: appointmentMessage });
+        if (!exists) await NotificationModel.create({ userId, message: appointmentMessage });
       }
     }
-    // One day before notification
     const diffMs = apptDate.getTime() - now.getTime();
     const diffDays = diffMs / (1000 * 60 * 60 * 24);
-    if (diffDays > 0.95 && diffDays < 1.05) {
-      // within ~1 day
-      const existsDay = await NotificationModel.findOne({
-        userId: appt.userId,
-        message: { $regex: `tomorrow` },
-      });
-      if (!existsDay) {
-        await NotificationModel.create({
-          userId: appt.userId,
-          message: `Reminder: You have an appointment tomorrow (${appt.bookingDate}) at ${appt.bookingSlot}.`,
-        });
+    if (diffDays > 23.5 / 24 && diffDays < 24.5 / 24) {
+      const tomorrowMessage = `Reminder: your appointment tomorrow (${appt.bookingDate}) is at ${appt.bookingSlot}.`;
+      for (const userId of [appt.userId, appt.doctorId]) {
+        const existsDay = await NotificationModel.findOne({ userId, message: tomorrowMessage });
+        if (!existsDay) await NotificationModel.create({ userId, message: tomorrowMessage });
       }
     }
   }
-  console.log("Checked and created notifications for upcoming appointments.");
 });

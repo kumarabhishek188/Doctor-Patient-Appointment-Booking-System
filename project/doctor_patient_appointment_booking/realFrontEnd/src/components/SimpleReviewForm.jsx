@@ -23,7 +23,7 @@ const SimpleReviewForm = ({ doctorId }) => {
           setUserReview(found);
           setSubmitted(true);
         }
-      } catch (e) {
+      } catch {
         setUserReview(null);
         setSubmitted(false);
       }
