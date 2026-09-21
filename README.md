@@ -39,6 +39,20 @@ To start the Doctor Patient Appointment Booking System, run the following comman
 ```
 The server will start running at the specified port, and the MongoDB connection will be established. You can then access the different endpoints using a REST client or a web browser.
 
+## Public Deployment
+
+This repository includes deployment configuration for a single-origin Render deployment. The Node service builds and serves the React frontend, API, and Socket.IO video rooms together.
+
+1. Create a MongoDB Atlas database and allow the backend service to connect.
+2. Deploy the repository to Render as a Web Service. The included `render.yaml` builds the frontend from the backend service and starts `npm start`.
+3. Set these Render environment variables:
+  - `mongoDbUrl`: MongoDB Atlas connection string
+  - `Key`: a long random JWT secret
+  - `PORT`: supplied automatically by Render, or leave it unset
+4. Open the Render URL. No frontend API variable is required for the single-origin deployment.
+
+The frontend uses the local Vite proxy during development and the same origin for production. Never commit `.env` files or production secrets.
+
 ## Code Structure
 The code for the Doctor Patient Appointment Booking System is organized into different files and directories. Here's an overview of the code structure:
 

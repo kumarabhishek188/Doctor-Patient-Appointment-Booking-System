@@ -1,4 +1,5 @@
 const express=require("express");
+const path = require("path");
 const cors=require("cors")
 const {Server}=require("socket.io");
 const http = require("http");
@@ -31,8 +32,15 @@ app.use("/notifications",notificationRoute)
 app.set('view engine','ejs');
 app.use(express.static('public'));
 
-app.get("/:room",(req,res)=>{
+const frontendDist = path.join(__dirname, "../realFrontEnd/dist");
+app.use(express.static(frontendDist));
+
+app.get("/room/:room",(req,res)=>{
   res.render('room',{roomId: req.params.room, role: req.query.role || 'participant'});
+});
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(frontendDist, "index.html"));
 });
 
 const roomUsers = new Map();
@@ -106,11 +114,13 @@ io.on("connection", (socket) => {
   });
 });
 
-httpServer.listen(process.env.port,async()=>{
+const serverPort = process.env.PORT || process.env.port || 4000;
+
+httpServer.listen(serverPort,async()=>{
     try {
         await connection;
         console.log("Connected to DB");
-        console.log(`Server is runnning at port ${process.env.port}`)
+        console.log(`Server is running at port ${serverPort}`)
     } catch (error) {
         console.log("Not able to connect to DB");
         console.log(error);

@@ -24,7 +24,7 @@ import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { useTranslation } from 'react-i18next';
 
-const baseUrl = "http://localhost:4000";
+const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:4000" : "");
 
 const Doctor = () => {
   const { t } = useTranslation();

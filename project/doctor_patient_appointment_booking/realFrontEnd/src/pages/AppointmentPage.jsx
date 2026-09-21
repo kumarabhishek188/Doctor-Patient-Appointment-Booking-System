@@ -29,7 +29,7 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import axios from "axios";
 import { useTranslation } from "react-i18next";
 
-const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:4000" : "");
 
 const AppointmentPage = () => {
   const { t } = useTranslation();
@@ -227,7 +227,7 @@ const AppointmentPage = () => {
     const roomId = appointment.roomId || appointment._id;
     const role = sessionStorage.getItem("role") || "participant";
     localStorage.setItem(`video-room:${roomId}`, JSON.stringify({ status: "waiting", updatedAt: Date.now(), role }));
-    window.open(`${baseUrl}/${encodeURIComponent(roomId)}?role=${encodeURIComponent(role)}`, "_blank", "noopener,noreferrer");
+    window.open(`${baseUrl}/room/${encodeURIComponent(roomId)}?role=${encodeURIComponent(role)}`, "_blank", "noopener,noreferrer");
   };
 
   const getRoomStatus = (appointment) => roomStatuses[appointment._id]?.status || "idle";

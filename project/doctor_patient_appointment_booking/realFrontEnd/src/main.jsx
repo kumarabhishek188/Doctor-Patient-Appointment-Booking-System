@@ -3,8 +3,11 @@ import React, { Component, useMemo, useState } from 'react';
 import { StrictMode } from 'react';
 import { createTheme, ThemeProvider, CssBaseline, Box, Button, Typography } from '@mui/material';
 import { createRoot } from 'react-dom/client';
+import axios from 'axios';
 import App from './App.jsx';
 import { ColorModeContext } from './components/NavBar';
+
+axios.defaults.baseURL = import.meta.env.VITE_API_URL || '/';
 
 class AppErrorBoundary extends Component {
   state = { hasError: false };
