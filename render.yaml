@@ -1,8 +1,13 @@
 services:
   - type: web
-    name: doctor-patient-appointment-api
+    name: mediconnect-appointment-system
     env: node
     rootDir: project/doctor_patient_appointment_booking/backend
     buildCommand: npm install && cd ../realFrontEnd && npm install && npm run build
     startCommand: npm start
-    healthCheckPath: /
+    healthCheckPath: /health
+    envVars:
+      - key: mongoDbUrl
+        sync: false
+      - key: Key
+        generateValue: true
