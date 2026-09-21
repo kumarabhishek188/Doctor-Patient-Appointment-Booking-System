@@ -1,0 +1,10 @@
+{
+  "name": "doctor-patient-appointment-booking",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Doctor Patient Appointment Booking System",
+  "scripts": {
+    "build": "cd project/doctor_patient_appointment_booking/backend && npm install && cd ../realFrontEnd && npm install && npm run build",
+    "start": "cd project/doctor_patient_appointment_booking/backend && npm start"
+  }
+}
