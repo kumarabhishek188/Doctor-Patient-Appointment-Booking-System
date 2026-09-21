@@ -20,9 +20,9 @@ app.use(express.json());
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, { cors: { origin: true, credentials: true } });
 
-app.get("/",(req,res)=>{
-    res.send("Welcome to Home Route")
-}) 
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", message: "Server is healthy" });
+});
 
 app.use("/user",userRoute)
 app.use("/booking",bookingRoutes)

@@ -5,7 +5,7 @@ import { createTheme, ThemeProvider, CssBaseline, Box, Button, Typography } from
 import { createRoot } from 'react-dom/client';
 import axios from 'axios';
 import App from './App.jsx';
-import { ColorModeContext } from './components/NavBar';
+import { ColorModeContext } from './components/Navbar';
 
 axios.defaults.baseURL = import.meta.env.VITE_API_URL || '/';
 
