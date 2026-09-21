@@ -5,6 +5,8 @@ const {authorisation}=require("../middlewares/authorizationMiddleware");
 const { NotificationModel } = require("../models/notificationModel");
 const bookingRoutes = express.Router();
 const nodemailer = require("nodemailer");
+const { getRoomStatus } = require("../services/roomStatus");
+const { Usermodel, DEFAULT_CONSULTATION_SLOTS } = require("../models/userModel");
 require("dotenv").config()
 
 //getting paticular user booking data
@@ -39,26 +41,15 @@ bookingRoutes.post(
       return res.status(400).json({ success: false, msg: "All required fields must be filled." });
     }
     try {
-      let allBookings = await Bookingmodel.find({ doctorId: data.doctorId });
-      let booking;
-      if (allBookings.length === 0) {
-        const addData = new Bookingmodel(data);
-        booking = await addData.save();
-      } else {
-        for (let i = 0; i < allBookings.length; i++) {
-          if (
-            allBookings[i].bookingDate === data.bookingDate &&
-            allBookings[i].bookingSlot === data.bookingSlot
-          ) {
-            return res.status(409).json({
-              success: false,
-              msg: "This Slot is Not Available.",
-            });
-          }
-        }
-        const addData = new Bookingmodel(data);
-        booking = await addData.save();
+      const doctor = await Usermodel.findOne({ _id: data.doctorId, role: "doctor" });
+      if (!doctor) return res.status(404).json({ success: false, msg: "Doctor not found." });
+      const consultationSlots = doctor.consultationSlots?.length ? doctor.consultationSlots : DEFAULT_CONSULTATION_SLOTS;
+      if (!consultationSlots.includes(data.bookingSlot)) {
+        return res.status(409).json({ success: false, msg: "This consultation time is not available." });
       }
+      const existingBooking = await Bookingmodel.findOne({ doctorId: data.doctorId, bookingDate: data.bookingDate, bookingSlot: data.bookingSlot });
+      if (existingBooking) return res.status(409).json({ success: false, msg: "This doctor is already booked for that date and time." });
+      const booking = await new Bookingmodel(data).save();
       const appointmentMessage = `New appointment scheduled for ${data.bookingDate} at ${data.bookingSlot}.`;
       await NotificationModel.create([
         { userId: data.userId, message: `Your appointment is confirmed for ${data.bookingDate} at ${data.bookingSlot}.` },
@@ -73,6 +64,7 @@ bookingRoutes.post(
       });
     } catch (error) {
       console.log("error from adding new booking data", error.message);
+      if (error.code === 11000) return res.status(409).json({ success: false, msg: "This doctor is already booked for that date and time." });
       res.status(500).json({
         success: false,
         msg: "error in adding new booking data",
@@ -98,14 +90,27 @@ bookingRoutes.get("/:id/room", authentication, authorisation(["patient", "doctor
   }
 });
 
+bookingRoutes.get("/:id/room-status", authentication, authorisation(["patient", "doctor"]), async (req, res) => {
+  try {
+    const booking = await Bookingmodel.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, msg: "Appointment not found." });
+    const isParticipant = booking.userId === req.body.userId || booking.doctorId === req.body.userId;
+    if (!isParticipant) return res.status(403).json({ success: false, msg: "You are not part of this appointment." });
+    return res.json({ success: true, roomStatus: getRoomStatus(booking.roomId || booking._id.toString()) });
+  } catch (error) {
+    return res.status(500).json({ success: false, msg: "Unable to read the video room status." });
+  }
+});
+
 //removing the booking data
 bookingRoutes.delete("/remove/:id", authentication,authorisation(["patient"]),async (req, res) => {
     const ID = req.params.id
     //console.log(ID);
 
     try {
-        let reqData=await Bookingmodel.find({_id:ID});
-        let specificDate = new Date(`${reqData[0].bookingDate}`);
+        const booking = await Bookingmodel.findById(ID);
+        if (!booking) return res.status(404).json({ "msg": "Appointment not found." });
+        let specificDate = new Date(`${booking.bookingDate}`);
         let currentDate = new Date();
         if(currentDate>specificDate){
             return res.json({"msg":"Meeting Already Over"})

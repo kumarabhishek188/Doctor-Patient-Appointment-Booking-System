@@ -1,10 +1,36 @@
 import './i18n';
-import React, { useMemo, useState } from 'react';
+import React, { Component, useMemo, useState } from 'react';
 import { StrictMode } from 'react';
-import { createTheme, ThemeProvider, CssBaseline } from '@mui/material';
+import { createTheme, ThemeProvider, CssBaseline, Box, Button, Typography } from '@mui/material';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
 import { ColorModeContext } from './components/NavBar';
+
+class AppErrorBoundary extends Component {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  handleRecovery = () => {
+    sessionStorage.clear();
+    window.location.href = '/login';
+  };
+
+  render() {
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 3, bgcolor: 'background.default' }}>
+        <Box sx={{ maxWidth: 520, textAlign: 'center' }}>
+          <Typography variant="h4" sx={{ fontWeight: 800 }}>We could not load this page</Typography>
+          <Typography color="text.secondary" sx={{ mt: 1, mb: 3 }}>Your session may have expired. Return to login and try again.</Typography>
+          <Button variant="contained" onClick={this.handleRecovery}>Return to login</Button>
+        </Box>
+      </Box>
+    );
+  }
+}
 
 const Main = () => {
   const [mode, setMode] = useState(() => localStorage.getItem('themeMode') || 'light');
@@ -38,7 +64,9 @@ const Main = () => {
     <ColorModeContext.Provider value={colorMode}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <App />
+        <AppErrorBoundary>
+          <App />
+        </AppErrorBoundary>
       </ThemeProvider>
     </ColorModeContext.Provider>
   );

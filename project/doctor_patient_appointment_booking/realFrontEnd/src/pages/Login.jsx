@@ -39,6 +39,7 @@ const Login = () => {
         sessionStorage.setItem("token", token);
         sessionStorage.setItem("role", role);
         sessionStorage.setItem("name", name);
+        window.dispatchEvent(new Event("auth-change"));
         try {
           const payload = JSON.parse(atob(token.split('.')[1]));
           sessionStorage.setItem("userId", payload.userId);

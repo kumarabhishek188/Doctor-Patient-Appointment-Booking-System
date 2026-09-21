@@ -10,6 +10,8 @@ const bookingSchema=mongoose.Schema({
     roomId:{type:String,required:true,unique:true,default:()=>crypto.randomUUID()}
 },{timestamps:true})
 
+bookingSchema.index({ doctorId: 1, bookingDate: 1, bookingSlot: 1 }, { unique: true });
+
 const Bookingmodel=mongoose.model("booking",bookingSchema)
 
 module.exports={Bookingmodel}

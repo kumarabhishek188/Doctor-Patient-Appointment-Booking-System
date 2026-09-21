@@ -18,6 +18,11 @@ const remoteVideos = {};
 let stream;
 let pendingCallerId = null;
 let callAccepted = false;
+const roomStatusKey = `video-room:${ROOM_ID}`;
+
+function setRoomStatus(status, detail = '') {
+    localStorage.setItem(roomStatusKey, JSON.stringify({ status, detail, role: USER_ROLE, updatedAt: Date.now() }));
+}
 
 function updateMyLabel() {
     const label = myVideo.parentElement.querySelector('span');
@@ -47,6 +52,7 @@ async function createPeerConnection(userId, shouldCreateOffer) {
     });
     stream.getTracks().forEach(track => peer.addTrack(track, stream));
     peer.ontrack = event => {
+        setRoomStatus('connected');
         if (!remoteVideos[userId]) {
             const video = document.createElement('video');
             video.setAttribute('data-label', 'Other Participant');
@@ -94,24 +100,50 @@ navigator.mediaDevices.getUserMedia({
     });
     socket.emit('joinRoom', ROOM_ID, USER_ROLE);
 }).catch(() => {
+    setRoomStatus('ended', 'Camera and microphone access was denied.');
     noRemoteMsg.textContent = 'Camera and microphone access is required for a video consultation.';
     noRemoteMsg.style.display = 'block';
 });
 
-socket.on('roomUsers', () => {});
+socket.on('roomUsers', (users) => {
+    setRoomStatus('waiting', users.length ? 'Waiting for the other participant' : 'Waiting for the other participant');
+});
+socket.on('roomStatus', ({ status, waitingFor, participantCount }) => {
+    const detail = status === 'joined'
+        ? 'Doctor and patient joined'
+        : participantCount === 0
+            ? 'Ready to join'
+            : `Waiting for ${waitingFor}`;
+    setRoomStatus(status, detail);
+    if (status === 'joined') {
+        noRemoteMsg.textContent = 'Both participants joined. Connecting the consultation...';
+        noRemoteMsg.style.display = 'block';
+    } else if (status === 'waiting') {
+        noRemoteMsg.textContent = `Waiting for ${waitingFor} to join...`;
+        noRemoteMsg.style.display = 'block';
+    }
+});
+socket.on('participantJoined', ({ participantRole }) => {
+    setRoomStatus('joined', `${participantRole} joined the waiting room`);
+    noRemoteMsg.textContent = `The ${participantRole} joined. Connecting the consultation...`;
+    noRemoteMsg.style.display = 'block';
+});
 socket.on('incomingCall', ({ callerId, callerRole }) => {
+    setRoomStatus('waiting', `Incoming call from ${callerRole}`);
     pendingCallerId = callerId;
     callRequestTitle.textContent = `Incoming call from ${callerRole}`;
     callRequestText.textContent = 'Accept to start this scheduled consultation.';
     callRequest.hidden = false;
 });
 socket.on('callWaiting', ({ participantRole }) => {
+    setRoomStatus('waiting', `Waiting for the ${participantRole} to accept`);
     noRemoteMsg.textContent = `Waiting for the ${participantRole} to accept the consultation...`;
     noRemoteMsg.style.display = 'block';
 });
 acceptCallBtn.addEventListener('click', () => {
     if (!pendingCallerId) return;
     callAccepted = true;
+    setRoomStatus('waiting', 'Connecting your consultation');
     callRequest.hidden = true;
     socket.emit('acceptCall', { callerId: pendingCallerId });
     noRemoteMsg.textContent = 'Connecting your consultation...';
@@ -123,9 +155,11 @@ rejectCallBtn.addEventListener('click', () => {
 });
 socket.on('callAccepted', async ({ accepterId }) => {
     callAccepted = true;
+    setRoomStatus('waiting', 'Participant accepted the consultation');
     if (!peers[accepterId]) await createPeerConnection(accepterId, true);
 });
 socket.on('callRejected', () => {
+    setRoomStatus('ended', 'The other participant declined the consultation.');
     noRemoteMsg.textContent = 'The other participant declined the consultation.';
     noRemoteMsg.style.display = 'block';
 });
@@ -144,6 +178,7 @@ socket.on('webrtc-ice-candidate', async ({ sender, candidate }) => {
 });
 
 socket.on('userDisconnected', userId => {
+    setRoomStatus('waiting', 'Participant left the consultation.');
     if (peers[userId]) {
         peers[userId].close();
         delete peers[userId];
@@ -156,12 +191,14 @@ socket.on('userDisconnected', userId => {
 });
 
 socket.on('roomFull', () => {
+    setRoomStatus('ended', 'This consultation is already full.');
     noRemoteMsg.textContent = 'This consultation already has one doctor and one patient.';
     noRemoteMsg.style.display = 'block';
     document.getElementById('btnsDiv').style.display = 'none';
 });
 
 socket.on('roomAccessDenied', () => {
+    setRoomStatus('ended', 'You are not allowed to join this consultation.');
     noRemoteMsg.textContent = 'Open this consultation from a logged-in doctor or patient appointment.';
     noRemoteMsg.style.display = 'block';
     document.getElementById('btnsDiv').style.display = 'none';
@@ -221,6 +258,7 @@ function updateRemoteMsg() {
 
 const leaveBtn = document.getElementById('leave');
 leaveBtn.addEventListener('click', () => {
+    setRoomStatus('ended', 'You left the consultation.');
     // Close all peer connections
     Object.values(peers).forEach(call => call.close());
     // Stop all local media tracks
@@ -231,6 +269,8 @@ leaveBtn.addEventListener('click', () => {
     // socket.emit('leaveRoom', ROOM_ID, myId);
     window.close();
 });
+
+window.addEventListener('beforeunload', () => setRoomStatus('ended', 'The consultation window was closed.'));
 
 const chatMessages = document.getElementById('chatMessages');
 const chatInput = document.getElementById('chatInput');

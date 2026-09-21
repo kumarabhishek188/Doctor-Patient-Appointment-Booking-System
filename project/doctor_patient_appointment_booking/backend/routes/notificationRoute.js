@@ -14,12 +14,27 @@ notificationRoute.get('/', authentication, async (req, res) => {
   }
 });
 
+// Mark all notifications read when the user views the notification center.
+notificationRoute.patch('/read-all', authentication, async (req, res) => {
+  try {
+    const result = await NotificationModel.updateMany({ userId: req.body.userId, read: false }, { read: true });
+    res.json({ success: true, updated: result.modifiedCount });
+  } catch (error) {
+    res.status(500).json({ success: false, msg: 'Error updating notifications', error: error.message });
+  }
+});
+
 // Mark a notification as read
 notificationRoute.patch('/:id/read', authentication, async (req, res) => {
   try {
     const notificationId = req.params.id;
-    await NotificationModel.findByIdAndUpdate(notificationId, { read: true });
-    res.json({ success: true });
+    const notification = await NotificationModel.findOneAndUpdate(
+      { _id: notificationId, userId: req.body.userId },
+      { read: true },
+      { new: true }
+    );
+    if (!notification) return res.status(404).json({ success: false, msg: 'Notification not found.' });
+    res.json({ success: true, notification });
   } catch (error) {
     res.status(500).json({ success: false, msg: 'Error updating notification', error: error.message });
   }

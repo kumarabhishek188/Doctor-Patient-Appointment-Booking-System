@@ -8,6 +8,7 @@ const { userRoute } = require("./routes/userRoute");
 const { bookingRoutes } = require("./routes/bookingRoute");
 const { reviewRoute } = require("./routes/reviewRoute");
 const { notificationRoute } = require("./routes/notificationRoute");
+const { updateRoomStatus } = require("./services/roomStatus");
 require("./cronNotifications");
 
 const app=express();
@@ -51,6 +52,8 @@ io.on("connection", (socket) => {
     socket.emit('roomUsers', users.map(user => user.socketId));
     users.push({ socketId: socket.id, role });
     roomUsers.set(roomId, users);
+    const roomStatus = updateRoomStatus(roomId, users);
+    io.to(roomId).emit('roomStatus', roomStatus);
     if (users.length === 2) {
       const existingUser = users[0];
       socket.emit('incomingCall', {
@@ -58,6 +61,7 @@ io.on("connection", (socket) => {
         callerRole: existingUser.role,
       });
       io.to(existingUser.socketId).emit('callWaiting', { participantRole: role });
+      io.to(roomId).emit('participantJoined', { participantRole: role, participantCount: users.length });
     }
 
     socket.on('acceptCall', ({ callerId }) => {
@@ -70,6 +74,8 @@ io.on("connection", (socket) => {
       const remaining = (roomUsers.get(roomId) || []).filter(user => user.socketId !== socket.id);
       if (remaining.length) roomUsers.set(roomId, remaining);
       else roomUsers.delete(roomId);
+      const roomStatus = updateRoomStatus(roomId, remaining);
+      io.to(roomId).emit('roomStatus', roomStatus);
       io.to(callerId).emit('userDisconnected', socket.id);
     });
 
@@ -93,6 +99,8 @@ io.on("connection", (socket) => {
       const remaining = (roomUsers.get(roomId) || []).filter(user => user.socketId !== socket.id);
       if (remaining.length) roomUsers.set(roomId, remaining);
       else roomUsers.delete(roomId);
+      const roomStatus = updateRoomStatus(roomId, remaining);
+      io.to(roomId).emit('roomStatus', roomStatus);
       socket.broadcast.to(roomId).emit('userDisconnected', socket.id);
     });
   });

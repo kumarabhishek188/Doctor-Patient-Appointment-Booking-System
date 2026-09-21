@@ -9,7 +9,12 @@
     "notifications": "Notifications",
     "dark_mode": "Dark Mode",
     "light_mode": "Light Mode",
-    "language": "Language"
+    "language": "Language",
+    "doctor_account": "Doctor account",
+    "patient_account": "Patient account",
+    "signed_in_as": "Signed in as",
+    "open_menu": "Open navigation menu",
+    "close_menu": "Close navigation menu"
   },
   "home": {
     "eyebrow": "Care that fits your day",

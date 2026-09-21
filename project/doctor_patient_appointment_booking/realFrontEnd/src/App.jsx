@@ -9,7 +9,7 @@ import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import { Link as RouterLink } from 'react-router-dom';
-import Navbar from "./components/NavBar";
+import Navbar from "./components/Navbar";
 import Login from "./pages/Login";
 import RegisterPage from "./pages/RegisterPage";
 import Doctor from "./pages/Doctor";

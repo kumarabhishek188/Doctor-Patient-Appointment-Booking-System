@@ -9,7 +9,12 @@
     "notifications": "सूचनाएँ",
     "dark_mode": "डार्क मोड",
     "light_mode": "लाइट मोड",
-    "language": "भाषा"
+    "language": "भाषा",
+    "doctor_account": "डॉक्टर खाता",
+    "patient_account": "मरीज खाता",
+    "signed_in_as": "लॉगिन हैं",
+    "open_menu": "नेविगेशन मेन्यू खोलें",
+    "close_menu": "नेविगेशन मेन्यू बंद करें"
   },
   "home": {
     "eyebrow": "आपकी सुविधा के अनुसार देखभाल",

@@ -4,6 +4,10 @@ import {
   Button,
   Card,
   CardContent,
+  CardActions,
+  Alert,
+  CircularProgress,
+  Chip,
   Typography,
   Grid,
   TextField,
@@ -12,7 +16,11 @@ import {
   InputLabel,
   FormControl,
   Container,
+  InputAdornment,
 } from "@mui/material";
+import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
+import RestartAltOutlinedIcon from "@mui/icons-material/RestartAltOutlined";
+import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { useTranslation } from 'react-i18next';
 
@@ -24,6 +32,8 @@ const Doctor = () => {
   const [location, setLocation] = useState("");
   const [specialty, setSpecialty] = useState("");
   const [name, setName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -35,28 +45,47 @@ const Doctor = () => {
   }, [navigate]);
 
   const fetchAllDoctors = async () => {
+    setLoading(true);
+    setError("");
     try {
       const res = await fetch(`${baseUrl}/user/doctors`);
+      if (!res.ok) throw new Error("Unable to load doctors");
       const data = await res.json();
       setDoctors(data.data || []);
     } catch (error) {
       console.error("Error fetching doctors:", error);
+      setError("We could not load the doctor directory. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const searchDoctors = async () => {
+    setLoading(true);
+    setError("");
     try {
       const params = new URLSearchParams({ name, specialty, location });
       const res = await fetch(`${baseUrl}/user/doctors/search?${params}`);
+      if (!res.ok) throw new Error("Unable to search doctors");
       const data = await res.json();
       setDoctors(data.data || []);
     } catch (error) {
       console.error("Error fetching doctors by location:", error);
+      setError("Search is temporarily unavailable. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSearch = () => {
     searchDoctors();
+  };
+
+  const resetSearch = () => {
+    setName("");
+    setLocation("");
+    setSpecialty("");
+    fetchAllDoctors();
   };
 
   const handleSpecialtyChange = (e) => {
@@ -66,40 +95,41 @@ const Doctor = () => {
 
   const handleBookAppointment = (doctorId) => {
     sessionStorage.setItem("doctorId", doctorId);
+    const selectedDoctor = doctors.find((doctor) => doctor._id === doctorId);
+    if (selectedDoctor) sessionStorage.setItem("selectedDoctor", JSON.stringify(selectedDoctor));
   };
 
   return (
-    <Container>
-      <Typography variant="h4" align="center" gutterBottom>
+    <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
+      <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>
         {t('doctor.title')}
       </Typography>
-      <Grid container spacing={2} alignItems="center" marginBottom={2}>
-        <Grid item xs={12} sm={6}>
+      <Typography color="text.secondary" sx={{ mb: 3 }}>Find the right clinician by name, specialty, or location.</Typography>
+      <Box component="form" onSubmit={(event) => { event.preventDefault(); handleSearch(); }} sx={{ p: { xs: 2, md: 3 }, mb: 4, border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper" }}>
+        <Grid container spacing={2} alignItems="center">
+        <Grid item xs={12} md={4}>
           <TextField
             label={t('doctor.find_by_name', 'Search by doctor name')}
             fullWidth
             value={name}
             onChange={(e) => setName(e.target.value)}
+            InputProps={{ startAdornment: <InputAdornment position="start"><SearchOutlinedIcon color="action" /></InputAdornment> }}
           />
         </Grid>
-        <Grid item xs={12} sm={6}>
+        <Grid item xs={12} md={3}>
           <TextField
             label={t('doctor.find_by_location', 'Find doctors by location')}
             fullWidth
             value={location}
             onChange={(e) => setLocation(e.target.value)}
+            InputProps={{ startAdornment: <InputAdornment position="start"><LocationOnOutlinedIcon color="action" /></InputAdornment> }}
           />
         </Grid>
-        <Grid item xs={12} sm={3}>
-          <Button variant="contained" fullWidth onClick={handleSearch}>
-            {t('doctor.search', 'Search')}
-          </Button>
-        </Grid>
-        <Grid item xs={12} sm={3}>
+        <Grid item xs={12} md={3}>
           <FormControl fullWidth>
             <InputLabel>{t('doctor.specialty', 'Specialty')}</InputLabel>
             <Select value={specialty} onChange={handleSpecialtyChange} label={t('doctor.specialty', 'Specialty')}>
-              <MenuItem value="">--{t('doctor.select_specialty', 'Select Specialty')}--</MenuItem>
+              <MenuItem value="">{t('doctor.select_specialty', 'All specialties')}</MenuItem>
               <MenuItem value="Pediatrician">{t('doctor.pediatrician', 'Pediatrician')}</MenuItem>
               <MenuItem value="Obstetricians">{t('doctor.gynecologist', 'Gynecologist')}</MenuItem>
               <MenuItem value="Cardiologist">{t('doctor.cardiologist', 'Cardiologist')}</MenuItem>
@@ -119,7 +149,18 @@ const Doctor = () => {
             </Select>
           </FormControl>
         </Grid>
-      </Grid>
+        <Grid item xs={12} md={2}>
+          <Button type="submit" variant="contained" fullWidth sx={{ height: 56 }}>
+            {t('doctor.search', 'Search')}
+          </Button>
+        </Grid>
+        <Grid item xs={12} md={12} sx={{ display: "flex", justifyContent: { xs: "stretch", md: "flex-end" } }}>
+          <Button type="button" color="inherit" startIcon={<RestartAltOutlinedIcon />} onClick={resetSearch}>{t('doctor.reset', 'Reset filters')}</Button>
+        </Grid>
+        </Grid>
+      </Box>
+      {error && <Alert severity="error" action={<Button color="inherit" size="small" onClick={fetchAllDoctors}>Retry</Button>} sx={{ mb: 3 }}>{error}</Alert>}
+      {loading ? <Box sx={{ display: "grid", placeItems: "center", py: 8 }}><CircularProgress /></Box> : doctors.length === 0 ? <Box sx={{ textAlign: "center", py: 8, border: 1, borderColor: "divider", borderRadius: 2 }}><Typography variant="h6" sx={{ fontWeight: 700 }}>{t('doctor.no_results', 'No doctors found')}</Typography><Typography color="text.secondary" sx={{ mt: 1 }}>Try a different search or reset your filters.</Typography></Box> : (
       <Grid container spacing={2}>
         {doctors.map((doctor) => (
           <Grid item xs={12} sm={6} md={4} key={doctor._id}>
@@ -127,25 +168,27 @@ const Doctor = () => {
               sx={{
                 transition: 'transform 0.2s, box-shadow 0.2s',
                 '&:hover': {
-                  transform: 'translateY(-8px) scale(1.03)',
+                  transform: 'translateY(-4px)',
                   boxShadow: 6,
                   background: (theme) => theme.palette.mode === 'dark' ? '#23272a' : '#e3f2fd',
                 },
-                borderRadius: 3,
-                boxShadow: 3,
-                minHeight: 220,
+                borderRadius: 2,
+                boxShadow: 1,
+                minHeight: 210,
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
               }}
             >
-              <CardContent>
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-                  {t('doctor.name', 'Name')}: {doctor.name}
+              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                <Chip label={doctor.specialty || t('doctor.specialty', 'Specialist')} color="primary" variant="outlined" size="small" sx={{ mb: 1 }} />
+                <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+                  {doctor.name}
                 </Typography>
-                <Typography sx={{ mb: 0.5 }}>{t('doctor.email', 'Email')}: {doctor.email}</Typography>
-                <Typography sx={{ mb: 0.5 }}>{t('doctor.location', 'Location')}: {doctor.location}</Typography>
-                <Typography sx={{ mb: 2 }}>{t('doctor.specialty', 'Specialty')}: {doctor.specialty}</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>{doctor.email}</Typography>
+                <Typography variant="body2" color="text.secondary">{doctor.location || "Location not provided"}</Typography>
+              </CardContent>
+              <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
                 <Button
                   variant="contained"
                   color="primary"
@@ -155,22 +198,18 @@ const Doctor = () => {
                   to="/book-appointment"
                   sx={{
                     fontWeight: 600,
-                    borderRadius: 2,
-                    py: 1.2,
-                    background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
-                    boxShadow: 2,
-                    '&:hover': {
-                      background: 'linear-gradient(90deg, #1565c0 0%, #1976d2 100%)',
-                    },
+                    borderRadius: 1.5,
+                    py: 1,
                   }}
                 >
                   {t('doctor.book_appointment', 'Book Appointment')}
                 </Button>
-              </CardContent>
+              </CardActions>
             </Card>
           </Grid>
         ))}
       </Grid>
+      )}
     </Container>
   );
 };
