@@ -1,4 +1,4 @@
-const socket = io("/");
+const socket = io("/", { auth: { token: window.sessionStorage.getItem("token") || "" } });
 const videoGrid = document.getElementById("videoGrid");
 const noRemoteMsg = document.getElementById("noRemoteMsg");
 const callRequest = document.getElementById("callRequest");
@@ -16,12 +16,18 @@ let videotoggle = true;
 const peers = {};
 const remoteVideos = {};
 let stream;
+let mediaReady = false;
 let pendingCallerId = null;
 let callAccepted = false;
 const roomStatusKey = `video-room:${ROOM_ID}`;
 
 function setRoomStatus(status, detail = '') {
-    localStorage.setItem(roomStatusKey, JSON.stringify({ status, detail, role: USER_ROLE, updatedAt: Date.now() }));
+    localStorage.setItem(roomStatusKey, JSON.stringify({
+        status,
+        detail,
+        role: window.sessionStorage.getItem("role") || "participant",
+        updatedAt: Date.now(),
+    }));
 }
 
 function updateMyLabel() {
@@ -47,6 +53,7 @@ function toggleVideo(state) {
 }
 
 async function createPeerConnection(userId, shouldCreateOffer) {
+    if (!stream) throw new Error('Camera and microphone are not available.');
     const peer = new RTCPeerConnection({
         iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
     });
@@ -78,6 +85,7 @@ navigator.mediaDevices.getUserMedia({
     audio: true
 }).then(localStream => {
     stream = localStream;
+    mediaReady = true;
     addVideoStream(myVideo, stream);
     updateMyLabel();
 
@@ -98,10 +106,19 @@ navigator.mediaDevices.getUserMedia({
         cameraBtn.classList.toggle("control-on", videotoggle);
         cameraBtn.classList.toggle("control-off", !videotoggle);
     });
-    socket.emit('joinRoom', ROOM_ID, USER_ROLE);
 }).catch(() => {
     setRoomStatus('ended', 'Camera and microphone access was denied.');
     noRemoteMsg.textContent = 'Camera and microphone access is required for a video consultation.';
+    noRemoteMsg.style.display = 'block';
+});
+
+// Joining the signaling room must not depend on camera permission: chat and
+// incoming-call status should still work when a participant has no camera.
+socket.emit('joinRoom', ROOM_ID);
+
+socket.on('connect_error', () => {
+    setRoomStatus('ended', 'Your login session is no longer valid.');
+    noRemoteMsg.textContent = 'Your session has expired. Return to the app and sign in again.';
     noRemoteMsg.style.display = 'block';
 });
 
@@ -142,6 +159,11 @@ socket.on('callWaiting', ({ participantRole }) => {
 });
 acceptCallBtn.addEventListener('click', () => {
     if (!pendingCallerId) return;
+    if (!mediaReady) {
+        noRemoteMsg.textContent = 'Allow camera and microphone access before accepting the video call. Chat is still available.';
+        noRemoteMsg.style.display = 'block';
+        return;
+    }
     callAccepted = true;
     setRoomStatus('waiting', 'Connecting your consultation');
     callRequest.hidden = true;
@@ -285,7 +307,7 @@ chatInput.addEventListener('keydown', function(e) {
 function sendMessage() {
     const msg = chatInput.value.trim();
     if (!msg) return;
-    socket.emit('chatMessage', { roomId: ROOM_ID, message: msg });
+    socket.emit('chatMessage', { message: msg });
     appendMessage(msg, true);
     chatInput.value = '';
 }
@@ -297,7 +319,13 @@ socket.on('chatMessage', ({ message }) => {
 
 function appendMessage(msg, isSelf) {
     const msgDiv = document.createElement('div');
-    msgDiv.innerHTML = `<span style='font-weight:bold;color:${isSelf ? '#2980b9' : '#16a085'};'>${isSelf ? 'You' : 'Other'}:</span> <span style='background:${isSelf ? '#eaf6ff' : '#e8f8f5'};padding:6px 12px;border-radius:16px;display:inline-block;max-width:80%;word-break:break-word;'>${msg}</span>`;
+    const sender = document.createElement('span');
+    sender.textContent = `${isSelf ? 'You' : 'Other'}: `;
+    sender.style.cssText = `font-weight:bold;color:${isSelf ? '#2980b9' : '#16a085'};`;
+    const bubble = document.createElement('span');
+    bubble.textContent = msg;
+    bubble.style.cssText = `background:${isSelf ? '#eaf6ff' : '#e8f8f5'};padding:6px 12px;border-radius:16px;display:inline-block;max-width:80%;word-break:break-word;`;
+    msgDiv.append(sender, bubble);
     msgDiv.style.margin = '8px 0';
     msgDiv.style.textAlign = isSelf ? 'right' : 'left';
     chatMessages.appendChild(msgDiv);

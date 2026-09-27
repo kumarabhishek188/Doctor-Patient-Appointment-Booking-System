@@ -3,6 +3,7 @@ const path = require("path");
 const cors=require("cors")
 const {Server}=require("socket.io");
 const http = require("http");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const { connection } = require("./config/db");
 const { userRoute } = require("./routes/userRoute");
@@ -11,6 +12,7 @@ const { reviewRoute } = require("./routes/reviewRoute");
 const { notificationRoute } = require("./routes/notificationRoute");
 const { updateRoomStatus } = require("./services/roomStatus");
 const { startNotificationCron } = require("./cronNotifications");
+const { Bookingmodel } = require("./models/bookingModel");
 
 const app=express();
 
@@ -45,13 +47,30 @@ app.get("*", (req, res) => {
 
 const roomUsers = new Map();
 
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) return next(new Error("Authentication required"));
+  try {
+    socket.data.user = jwt.verify(token.replace(/^Bearer\s+/i, ""), process.env.Key);
+    next();
+  } catch {
+    next(new Error("Invalid session"));
+  }
+});
+
 io.on("connection", (socket) => {
-  socket.on('joinRoom', (roomId, role = 'participant') => {
-    const users = roomUsers.get(roomId) || [];
-    if (!['doctor', 'patient'].includes(role)) {
+  socket.on('joinRoom', async (roomId) => {
+    const { userId, role } = socket.data.user;
+    if (typeof roomId !== "string" || !['doctor', 'patient'].includes(role)) {
       socket.emit('roomAccessDenied');
       return;
     }
+    const booking = await Bookingmodel.findOne({ roomId }).select("userId doctorId");
+    if (!booking || ![String(booking.userId), String(booking.doctorId)].includes(String(userId))) {
+      socket.emit('roomAccessDenied');
+      return;
+    }
+    const users = roomUsers.get(roomId) || [];
     if (users.length >= 2 || users.some(user => user.role === role)) {
       socket.emit('roomFull');
       return;
@@ -99,8 +118,9 @@ io.on("connection", (socket) => {
       io.to(target).emit('webrtc-ice-candidate', { sender: socket.id, candidate });
     });
 
-    socket.on('chatMessage', ({ roomId, message }) => {
-      socket.broadcast.to(roomId).emit('chatMessage', { message });
+    socket.on('chatMessage', ({ message }) => {
+      const cleanMessage = String(message || "").trim().slice(0, 1000);
+      if (cleanMessage) socket.broadcast.to(roomId).emit('chatMessage', { message: cleanMessage });
     });
 
     socket.on('disconnect', () => {
