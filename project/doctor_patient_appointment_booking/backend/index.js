@@ -10,7 +10,7 @@ const { bookingRoutes } = require("./routes/bookingRoute");
 const { reviewRoute } = require("./routes/reviewRoute");
 const { notificationRoute } = require("./routes/notificationRoute");
 const { updateRoomStatus } = require("./services/roomStatus");
-require("./cronNotifications");
+const { startNotificationCron } = require("./cronNotifications");
 
 const app=express();
 
@@ -116,14 +116,24 @@ io.on("connection", (socket) => {
 
 const serverPort = process.env.PORT || process.env.port || 4000;
 
-httpServer.listen(serverPort,async()=>{
-    try {
-        await connection;
-        console.log("Connected to DB");
-        console.log(`Server is running at port ${serverPort}`)
-    } catch (error) {
-        console.log("Not able to connect to DB");
-        console.log(error);
-    }
-})
+async function startServer() {
+  if (!process.env.mongoDbUrl) {
+    throw new Error("Missing mongoDbUrl environment variable.");
+  }
+  if (!process.env.Key) {
+    throw new Error("Missing Key environment variable.");
+  }
 
+  await connection;
+  console.log("Connected to DB");
+  startNotificationCron();
+
+  httpServer.listen(serverPort, () => {
+    console.log(`Server is running at port ${serverPort}`);
+  });
+}
+
+startServer().catch((error) => {
+  console.error("Unable to start server:", error.message);
+  process.exit(1);
+});

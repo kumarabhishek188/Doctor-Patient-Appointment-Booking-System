@@ -1,12 +1,7 @@
 // This script checks for upcoming appointments and creates in-app notifications for users
 const { Bookingmodel } = require("./models/bookingModel");
 const { NotificationModel } = require("./models/notificationModel");
-const mongoose = require("mongoose");
-require("dotenv").config();
 const cron = require("node-cron");
-
-// Connect to DB if not already connected
-mongoose.connect(process.env.mongoDbUrl, { useNewUrlParser: true, useUnifiedTopology: true });
 
 const slotHours = { "8-9": 8, "9-10": 9, "4-5": 16, "7-8": 19 };
 
@@ -15,8 +10,10 @@ function appointmentDateTime(bookingDate, bookingSlot) {
   return new Date(year, month - 1, day, slotHours[bookingSlot] || 9, 0, 0);
 }
 
-// Run every minute so reminders stay close to the scheduled time.
-cron.schedule("* * * * *", async () => {
+// Run every minute so reminders stay close to the scheduled time. This is
+// started by index.js only after MongoDB has connected successfully.
+function startNotificationCron() {
+  cron.schedule("* * * * *", async () => {
   const now = new Date();
   const inOneHour = new Date(now.getTime() + 60 * 60 * 1000);
   const upcoming = await Bookingmodel.find({
@@ -41,4 +38,7 @@ cron.schedule("* * * * *", async () => {
       }
     }
   }
-});
+  });
+}
+
+module.exports = { startNotificationCron };
